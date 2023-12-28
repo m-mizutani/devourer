@@ -1,3 +1,3 @@
 # devourer
 
-![logo](https://github.com/m-mizutani/devourer/assets/605953/277d7b63-7faf-4007-9156-90c00be6cc3c)
+![](https://github-production-user-asset-6210df.s3.amazonaws.com/605953/293288262-cf99fc57-c8da-45de-8c5c-72765df382d6.png)
