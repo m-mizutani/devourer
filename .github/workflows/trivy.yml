@@ -2,6 +2,9 @@ name: Trivy
 
 on: [push]
 
+permissions:
+  contents: read
+
 jobs:
   scan:
     runs-on: ubuntu-latest
