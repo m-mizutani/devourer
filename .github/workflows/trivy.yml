@@ -2,12 +2,13 @@ name: Trivy
 
 on: [push]
 
-permissions:
-  contents: read
-
 jobs:
   scan:
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
 
     steps:
       - name: Checkout upstream repo
