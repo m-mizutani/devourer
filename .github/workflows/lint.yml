@@ -25,16 +25,21 @@ jobs:
     name: Gosec
     needs: [setup]
     steps:
-      - name: Install gosec
-        run: curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.8.1
-      - name: Run gosec
-        run: |
-          gosec ./... 2>&1 | reviewdog -f=gosec
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          # we let the report trigger content trigger a failure using the GitHub Security features.
+          args: "-no-fail -fmt sarif -out results.sarif ./..."
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          # Path to SARIF file relative to the root of the repository
+          sarif_file: results.sarif
+
   golangci-lint:
     runs-on: ubuntu-latest
     name: Golangci-lint
     needs: [setup]
     steps:
-      - run: curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.42.1
-      - name: Run golangci-lint
-        run: golangci-lint run ./... 2>&1 | reviewdog -f=golangci-lint
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v2
