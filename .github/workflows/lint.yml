@@ -1,0 +1,39 @@
+name: Test
+on: [push, pull_request]
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    name: Setup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+  gofmt:
+    runs-on: ubuntu-latest
+    name: Gofmt
+    needs: [setup]
+    steps:
+      - run: go fmt ./... | tee /dev/stderr | read && exit 1 || exit 0
+      - run: go vet ./... | tee /dev/stderr | read && exit 1 || exit 0
+
+  gosec:
+    runs-on: ubuntu-latest
+    name: Gosec
+    needs: [setup]
+    steps:
+      - name: Install gosec
+        run: curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.8.1
+      - name: Run gosec
+        run: gosec ./...
+
+  golangci-lint:
+    runs-on: ubuntu-latest
+    name: Golangci-lint
+    needs: [setup]
+    steps:
+      - run: curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.42.1
+      - run: golangci-lint run ./...
