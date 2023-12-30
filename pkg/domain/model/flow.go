@@ -73,7 +73,7 @@ type Peer struct {
 }
 
 func (x Peer) Equal(y *Peer) bool {
-	return bytes.Equal(x.Addr, y.Addr) && x.Port == y.Port
+	return net.IP.Equal(x.Addr, y.Addr) && x.Port == y.Port
 }
 
 type Tick int64
