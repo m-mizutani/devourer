@@ -28,12 +28,13 @@ jobs:
       - name: Install gosec
         run: curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.8.1
       - name: Run gosec
-        run: gosec ./...
-
+        run: |
+          gosec ./... 2>&1 | reviewdog -f=gosec
   golangci-lint:
     runs-on: ubuntu-latest
     name: Golangci-lint
     needs: [setup]
     steps:
       - run: curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.42.1
-      - run: golangci-lint run ./...
+      - name: Run golangci-lint
+        run: golangci-lint run ./... 2>&1 | reviewdog -f=golangci-lint
