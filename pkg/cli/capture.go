@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -73,7 +74,7 @@ func cmdCapture() *cli.Command {
 			var dumper interfaces.Dumper
 			switch output {
 			case "file":
-				fd, err := os.Create(writeFile)
+				fd, err := os.Create(filepath.Clean(writeFile))
 				if err != nil {
 					return goerr.Wrap(err, "Failed to create file")
 				}

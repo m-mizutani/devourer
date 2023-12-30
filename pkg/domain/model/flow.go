@@ -99,12 +99,12 @@ func CalcFlowKey(p1, p2 *Peer, proto string) FlowKey {
 	buf = append(buf, []byte(proto)...)
 
 	buf = append(buf, p1.Addr...)
-	p1Port := make([]byte, unsafe.Sizeof(p1.Port))
+	p1Port := make([]byte, unsafe.Sizeof(p1.Port)) // #nosec: CWE-242
 	binary.BigEndian.PutUint32(p1Port, p1.Port)
 	buf = append(buf, p1Port...)
 
 	buf = append(buf, p2.Addr...)
-	p2Port := make([]byte, unsafe.Sizeof(p2.Port))
+	p2Port := make([]byte, unsafe.Sizeof(p2.Port)) // #nosec: CWE-242
 	binary.BigEndian.PutUint32(p2Port, p2.Port)
 	buf = append(buf, p2Port...)
 
