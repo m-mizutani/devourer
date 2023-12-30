@@ -6,8 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"reflect"
-	"time"
 
 	"github.com/fatih/color"
 	"github.com/m-mizutani/clog"
@@ -105,8 +103,6 @@ func (x *Logger) Configure() (func(), error) {
 
 	filter := masq.New(
 		masq.WithTag("secret"),
-		masq.WithFieldPrefix("secret_"),
-		masq.WithAllowedType(reflect.TypeOf(time.Time{})),
 	)
 
 	var handler slog.Handler

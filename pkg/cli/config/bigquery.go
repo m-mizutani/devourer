@@ -12,7 +12,7 @@ import (
 type BigQuery struct {
 	projectID string
 	datasetID string
-	saKeyData string
+	saKeyData string `masq:"secret"`
 }
 
 func (x *BigQuery) Flags() []cli.Flag {

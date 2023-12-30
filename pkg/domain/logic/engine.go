@@ -29,8 +29,6 @@ func WithTimeout(d time.Duration) Option {
 }
 
 func (x *Engine) InputPacket(pkt gopacket.Packet) (*model.Record, error) {
-	var newFlows []*model.Flow
-
 	if pkt.NetworkLayer() == nil || pkt.TransportLayer() == nil {
 		// not supported
 		return nil, nil
@@ -71,25 +69,29 @@ func (x *Engine) InputPacket(pkt gopacket.Packet) (*model.Record, error) {
 		},
 		proto,
 		pkt.Metadata().Timestamp,
+		model.PeerStat{
+			Bytes:   uint64(pkt.Metadata().Length),
+			Packets: 1,
+		},
 	)
-	stat := model.PeerStat{
-		Bytes:   uint64(pkt.Metadata().Length),
-		Packets: 1,
-	}
 
-	if x.flowMap.Put(flow, stat) {
-		newFlows = append(newFlows, flow)
-	}
+	_ = x.flowMap.Put(flow)
 
-	return &model.Record{
-		NewFlows: newFlows,
-	}, nil
-}
-
-func (x *Engine) Tick(now time.Time) (*model.Record, error) {
 	return &model.Record{}, nil
 }
 
+func (x *Engine) Tick(now time.Time) (*model.Record, error) {
+	return &model.Record{
+		FlowLogs: x.flowMap.Expire(now.Add(-x.timeout)),
+	}, nil
+}
+
 func (x *Engine) Flush() *model.Record {
-	return &model.Record{}
+	return &model.Record{
+		FlowLogs: x.flowMap.Flush(),
+	}
+}
+
+func (x *Engine) FlowCount() int {
+	return x.flowMap.Len()
 }

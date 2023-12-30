@@ -2,6 +2,8 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,6 +14,7 @@ import (
 	"github.com/m-mizutani/devourer/pkg/domain/logic"
 	"github.com/m-mizutani/devourer/pkg/infra"
 	"github.com/m-mizutani/devourer/pkg/infra/capture"
+	"github.com/m-mizutani/devourer/pkg/utils"
 	"github.com/m-mizutani/goerr"
 	"github.com/urfave/cli/v2"
 )
@@ -22,6 +25,7 @@ func cmdCapture() *cli.Command {
 		output    string
 		writeFile string
 		bigquery  config.BigQuery
+		showStats bool
 	)
 
 	return &cli.Command{
@@ -54,6 +58,14 @@ func cmdCapture() *cli.Command {
 				EnvVars:     []string{"DEVOURER_WRITE_FILE"},
 				Usage:       "Write packets to file. This option works only with output=file",
 				Destination: &writeFile,
+			},
+			&cli.BoolFlag{
+				Name:        "show-stats",
+				Category:    "capture",
+				Aliases:     []string{"s"},
+				EnvVars:     []string{"DEVOURER_SHOW_STATS"},
+				Usage:       "Show statistics",
+				Destination: &showStats,
 			},
 		}, &bigquery),
 		Action: func(c *cli.Context) error {
@@ -94,10 +106,21 @@ func cmdCapture() *cli.Command {
 
 			sigCh := make(chan os.Signal, 1)
 			signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-			ticker := time.NewTicker(1 * time.Second)
+			expireTicker := time.NewTicker(1 * time.Second)
+			monitorTicker := time.NewTicker(10 * time.Second)
 
 			ctx := c.Context
 			engine := logic.NewEngine()
+
+			utils.Logger().Info("Starting capture...",
+				slog.Any("interface", iface),
+				slog.Any("output", output),
+				slog.Any("show_stats", showStats),
+			)
+
+			var packetCount int64
+			var sizeCount int64
+			lastTime := time.Now()
 
 			for {
 				select {
@@ -105,6 +128,9 @@ func cmdCapture() *cli.Command {
 					return nil
 
 				case pkt := <-clients.Capture().Read():
+					packetCount++
+					sizeCount += int64(pkt.Metadata().Length)
+
 					out, err := engine.InputPacket(pkt)
 					if err != nil {
 						return err
@@ -115,24 +141,37 @@ func cmdCapture() *cli.Command {
 						}
 					}
 
-				case <-ticker.C:
+				case <-monitorTicker.C:
+					if showStats {
+						d := time.Since(lastTime)
+						utils.Logger().Info("Statistics",
+							slog.String("pps", fmt.Sprintf("%.2f", float64(packetCount)/d.Seconds())),
+							slog.String("bps", convertToBps(float64(sizeCount)/d.Seconds())),
+							slog.Int("flow count", engine.FlowCount()),
+						)
+					}
+					packetCount = 0
+					sizeCount = 0
+					lastTime = time.Now()
+
+				case <-expireTicker.C:
 					out, err := engine.Tick(time.Now())
 					if err != nil {
 						return err
 					}
-					if out != nil {
-						if err := clients.Dumper().Dump(ctx, out); err != nil {
-							return err
-						}
+					if err := clients.Dumper().Dump(ctx, out); err != nil {
+						return err
 					}
 
 				case <-sigCh:
 					out := engine.Flush()
-					if out != nil {
-						if err := clients.Dumper().Dump(ctx, out); err != nil {
-							return err
-						}
+					utils.Logger().Info("Caught signal, flushing flow logs...",
+						slog.Int("flow_logs", len(out.FlowLogs)),
+					)
+					if err := clients.Dumper().Dump(ctx, out); err != nil {
+						return err
 					}
+
 					return nil
 				}
 			}

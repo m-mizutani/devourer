@@ -20,7 +20,7 @@ type implClient struct {
 	dataSet   *bigquery.Dataset
 }
 
-type flowRow struct {
+type flowLog struct {
 	ID          string    `bigquery:"id"`
 	Protocol    string    `bigquery:"protocol"`
 	SrcAddr     string    `bigquery:"src_addr"`
@@ -28,21 +28,17 @@ type flowRow struct {
 	SrcPort     int       `bigquery:"src_port"`
 	DstPort     int       `bigquery:"dst_port"`
 	FirstSeenAt time.Time `bigquery:"first_seen_at"`
+	LastSeenAt  time.Time `bigquery:"last_seen_at"`
+	SrcBytes    int64     `bigquery:"src_bytes"`
+	DstBytes    int64     `bigquery:"dst_bytes"`
+	SrcPackets  int64     `bigquery:"src_packets"`
+	DstPackets  int64     `bigquery:"dst_packets"`
+	Status      string    `bigquery:"status"`
 }
 
-type newFlowRow struct {
-	flowRow
-}
-
-type closedFlowRow struct {
-	flowRow
-	LastSeenAt time.Time `bigquery:"last_seen_at"`
-	SrcBytes   int64     `bigquery:"src_bytes"`
-	DstBytes   int64     `bigquery:"dst_bytes"`
-	SrcPackets int64     `bigquery:"src_packets"`
-	DstPackets int64     `bigquery:"dst_packets"`
-	Status     string    `bigquery:"status"`
-}
+const (
+	tblFlowLogs = "flow_logs"
+)
 
 func New(ctx context.Context, projectID, datasetID string, opts ...option.ClientOption) (interfaces.Dumper, error) {
 	bqClient, err := bigquery.NewClient(ctx, projectID, opts...)
@@ -57,12 +53,8 @@ func New(ctx context.Context, projectID, datasetID string, opts ...option.Client
 		schema any
 	}{
 		{
-			name:   "new_flows",
-			schema: newFlowRow{},
-		},
-		{
-			name:   "closed_flows",
-			schema: closedFlowRow{},
+			name:   tblFlowLogs,
+			schema: flowLog{},
 		},
 	}
 
@@ -96,32 +88,29 @@ func New(ctx context.Context, projectID, datasetID string, opts ...option.Client
 }
 
 func (x *implClient) Dump(ctx context.Context, record *model.Record) error {
-	if len(record.NewFlows) > 0 {
-		rows := make([]newFlowRow, len(record.NewFlows))
-		for i, flow := range record.NewFlows {
-			rows[i] = newFlowRow{
-				flowRow: flowRow{
-					ID:          flow.ID.String(),
-					Protocol:    flow.Protocol,
-					SrcAddr:     flow.Src.Addr.String(),
-					DstAddr:     flow.Dst.Addr.String(),
-					SrcPort:     int(flow.Src.Port),
-					DstPort:     int(flow.Dst.Port),
-					FirstSeenAt: flow.FirstSeenAt,
-				},
+	if len(record.FlowLogs) > 0 {
+		rows := make([]flowLog, len(record.FlowLogs))
+		for i, flow := range record.FlowLogs {
+			rows[i] = flowLog{
+				ID:          flow.ID.String(),
+				Protocol:    flow.Protocol,
+				SrcAddr:     flow.Src.Addr.String(),
+				DstAddr:     flow.Dst.Addr.String(),
+				SrcPort:     int(flow.Src.Port),
+				DstPort:     int(flow.Dst.Port),
+				FirstSeenAt: flow.FirstSeenAt,
+				LastSeenAt:  flow.LastSeenAt,
+				SrcBytes:    int64(flow.SrcStat.Bytes),
+				DstBytes:    int64(flow.DstStat.Bytes),
+				SrcPackets:  int64(flow.SrcStat.Packets),
+				DstPackets:  int64(flow.DstStat.Packets),
+				Status:      flow.Status,
 			}
 		}
 
-		insert := x.dataSet.Table("new_flows").Inserter()
+		insert := x.dataSet.Table(tblFlowLogs).Inserter()
 		if err := insert.Put(ctx, rows); err != nil {
 			return goerr.Wrap(err, "failed to insert row of new flows")
-		}
-	}
-
-	if len(record.ClosedFlows) > 0 {
-		insert := x.dataSet.Table("closed_flows").Inserter()
-		if err := insert.Put(ctx, record.ClosedFlows); err != nil {
-			return goerr.Wrap(err, "failed to insert row of closed flows")
 		}
 	}
 

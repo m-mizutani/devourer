@@ -34,7 +34,7 @@ type Flow struct {
 	Status  string   `bigquery:"status" json:"status"`
 }
 
-func NewFlow(src, dst Peer, proto string, now time.Time) *Flow {
+func NewFlow(src, dst Peer, proto string, now time.Time, stat PeerStat) *Flow {
 	return &Flow{
 		ID:          uuid.New(),
 		Protocol:    proto,
@@ -43,6 +43,7 @@ func NewFlow(src, dst Peer, proto string, now time.Time) *Flow {
 		FirstSeenAt: now,
 		LastSeenAt:  now,
 		Status:      "init",
+		SrcStat:     stat,
 	}
 }
 

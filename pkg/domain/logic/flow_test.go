@@ -60,9 +60,9 @@ func TestFlows(t *testing.T) {
 	}
 
 	t.Run("put flow", func(t *testing.T) {
-		gt.True(t, flowMap.Put(flows[0], model.PeerStat{Bytes: 100, Packets: 1}))
+		gt.True(t, flowMap.Put(flows[0]))
 		flows[0].LastSeenAt = now.Add(time.Second)
-		gt.False(t, flowMap.Put(flows[0], model.PeerStat{Bytes: 100, Packets: 1}))
+		gt.False(t, flowMap.Put(flows[0]))
 		f := flowMap.Get(flows[0].Key())
 		gt.Equal(t, f.LastSeenAt, now.Add(time.Second))
 	})

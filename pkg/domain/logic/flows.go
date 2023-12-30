@@ -19,14 +19,14 @@ func NewFlowMap() *FlowMap {
 	}
 }
 
-func (x *FlowMap) Put(flow *model.Flow, stat model.PeerStat) bool {
+func (x *FlowMap) Put(flow *model.Flow) bool {
 	key := flow.Key()
 
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
 	if exist, ok := x.storage[key]; ok {
-		exist.Update(&flow.Src, flow.LastSeenAt, stat)
+		exist.Update(&flow.Src, flow.LastSeenAt, flow.SrcStat)
 		return false
 	}
 
@@ -40,18 +40,19 @@ func (x *FlowMap) Get(key model.FlowKey) *model.Flow {
 	return x.storage[key]
 }
 
-func (x *FlowMap) Expire(key model.FlowKey, at time.Time) bool {
+func (x *FlowMap) Expire(at time.Time) []*model.Flow {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
-	if exist, ok := x.storage[key]; ok {
-		if exist.LastSeenAt.Before(at) {
+	var expired []*model.Flow
+	for key := range x.storage {
+		if x.storage[key].LastSeenAt.Before(at) {
+			expired = append(expired, x.storage[key])
 			delete(x.storage, key)
-			return true
 		}
 	}
 
-	return false
+	return expired
 }
 
 func (x *FlowMap) Flush() []*model.Flow {
@@ -65,4 +66,10 @@ func (x *FlowMap) Flush() []*model.Flow {
 	x.storage = make(map[model.FlowKey]*model.Flow)
 
 	return flows
+}
+
+func (x *FlowMap) Len() int {
+	x.mutex.RLock()
+	defer x.mutex.RUnlock()
+	return len(x.storage)
 }
