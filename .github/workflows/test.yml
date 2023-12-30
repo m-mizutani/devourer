@@ -10,5 +10,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: "go.mod"
+      - run: sudo apt-get update && sudo apt-get install -y libpcap0.8 libpcap0.8-dev
       - name: Run tests
         run: go test -v ./...
