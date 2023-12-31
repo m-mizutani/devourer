@@ -2,6 +2,7 @@ package cli
 
 import (
 	"github.com/m-mizutani/devourer/pkg/cli/config"
+	"github.com/m-mizutani/devourer/pkg/domain/types"
 	"github.com/m-mizutani/devourer/pkg/utils"
 	"github.com/urfave/cli/v2"
 )
@@ -14,8 +15,9 @@ func Run(args []string) error {
 	)
 
 	app := cli.App{
-		Name:  "devourer",
-		Flags: mergeFlags([]cli.Flag{}, &logger),
+		Name:    "devourer",
+		Flags:   mergeFlags([]cli.Flag{}, &logger),
+		Version: types.AppVersion,
 		Commands: []*cli.Command{
 			cmdCapture(),
 		},
