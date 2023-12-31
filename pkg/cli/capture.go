@@ -22,11 +22,11 @@ import (
 
 func cmdCapture() *cli.Command {
 	var (
-		iface     string
-		output    string
-		writeFile string
-		bigquery  config.BigQuery
-		showStats bool
+		iface        string
+		output       string
+		writeFile    string
+		bigquery     config.BigQuery
+		statInterval time.Duration
 	)
 
 	return &cli.Command{
@@ -60,13 +60,13 @@ func cmdCapture() *cli.Command {
 				Usage:       "Write packets to file. This option works only with output=file",
 				Destination: &writeFile,
 			},
-			&cli.BoolFlag{
-				Name:        "show-stats",
+			&cli.DurationFlag{
+				Name:        "stat-interval",
 				Category:    "capture",
 				Aliases:     []string{"s"},
-				EnvVars:     []string{"DEVOURER_SHOW_STATS"},
-				Usage:       "Show statistics",
-				Destination: &showStats,
+				EnvVars:     []string{"DEVOURER_STAT_INTERVAL"},
+				Usage:       "Show statistics in every interval",
+				Destination: &statInterval,
 			},
 		}, &bigquery),
 		Action: func(c *cli.Context) error {
@@ -108,7 +108,12 @@ func cmdCapture() *cli.Command {
 			sigCh := make(chan os.Signal, 1)
 			signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 			expireTicker := time.NewTicker(1 * time.Second)
-			monitorTicker := time.NewTicker(10 * time.Second)
+			var statTicker <-chan time.Time
+			if statInterval > 0 {
+				statTicker = time.NewTicker(statInterval).C
+			} else {
+				statTicker = make(chan time.Time)
+			}
 
 			ctx := c.Context
 			engine := logic.NewEngine()
@@ -116,7 +121,7 @@ func cmdCapture() *cli.Command {
 			utils.Logger().Info("Starting capture...",
 				slog.Any("interface", iface),
 				slog.Any("output", output),
-				slog.Any("show_stats", showStats),
+				slog.Any("stat_interval", statInterval.String()),
 			)
 
 			var packetCount int64
@@ -142,15 +147,13 @@ func cmdCapture() *cli.Command {
 						}
 					}
 
-				case <-monitorTicker.C:
-					if showStats {
-						d := time.Since(lastTime)
-						utils.Logger().Info("Statistics",
-							slog.String("pps", fmt.Sprintf("%.2f", float64(packetCount)/d.Seconds())),
-							slog.String("bps", convertToBps(float64(sizeCount)/d.Seconds())),
-							slog.Int("flow count", engine.FlowCount()),
-						)
-					}
+				case <-statTicker:
+					d := time.Since(lastTime)
+					utils.Logger().Info("Statistics",
+						slog.String("pps", fmt.Sprintf("%.2f", float64(packetCount)/d.Seconds())),
+						slog.String("bps", convertToBps(float64(sizeCount)/d.Seconds())),
+						slog.Int("flow count", engine.FlowCount()),
+					)
 					packetCount = 0
 					sizeCount = 0
 					lastTime = time.Now()
