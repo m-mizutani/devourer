@@ -1,6 +1,6 @@
 module github.com/m-mizutani/devourer
 
-go 1.21.0
+go 1.21
 
 require (
 	cloud.google.com/go/bigquery v1.57.1
